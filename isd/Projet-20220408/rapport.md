@@ -4,7 +4,7 @@
 * etant donne qu'il y a __pleusieur langue, et souvent avec moins de population__, notre graph (plt.bar) a tandance afficher tous a 0, et donc on a moins d'information a voir, et c'est pour cela qu'on reduit le graph auqulle il y a au moins un personne qui la parle, c'est le cas d'anglais "langue majoritaire" et espagnole et russe et ptun
 
 ## correlation entre certaines variables et la cible:
-* pour eviter de mettre toutes les variable dans une seule figure, ce qui rend les __noms des variables illisible__, nous les avons separés en pleusieur figure, avec 15 variables pour chaque 
+* pour eviter de mettre toutes les variable dans une seule figure a dimension par default, ce qui rend les __noms des variables illisible__, nous les avons mis dans une figure a size=(15,60), nous avons ensuite retiré les variables qui n'ont pas correlation 
 
 ## l'ensemble de train/test/validation
 * Premierement pour debugger les erreurs, et afin de ne pas attendre __30 min__ pour savoir qu'on fait une erreur de syntax par exemple, nous avons reduit l'ensemble de data a 400 lignes, ce qui permet une execution rapide, et ensuit la remettre a son etat original et dans ce cas pour ameliorer les performance. 
