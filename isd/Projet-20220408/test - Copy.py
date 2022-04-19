@@ -1,9 +1,10 @@
 from datetime import datetime
 from pathlib import Path
 from random import gauss
+from traceback import print_tb
 from unittest import result
-from sklearnex import patch_sklearn, config_context
-patch_sklearn()
+# from sklearn import patch_sklearn, config_context
+# patch_sklearn()
 import imblearn
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,7 +25,6 @@ from sklearn import (
 from sklearn.pipeline import make_pipeline
 from sklearn.naive_bayes import GaussianNB
 from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
 
@@ -100,6 +100,20 @@ x_all_oh_df.apply(lambda x: pd.factorize(x)[0])
 
 # x_all_oh_df.drop((col for col in x_all_oh_df if len(x_all_oh_df[col].unique()) == 1), axis="columns", inplace=True)
 
+
+def cross_val ():
+    SCORINGS = "balanced_accuracy"
+
+    pipe = make_pipeline(PCA(n_components=12), GaussianNB())
+
+    scores = model_selection.cross_val_score(pipe, x_oh_df.loc[:, x_oh_df.columns != 'ys'], x_oh_df['ys'], cv=10, scoring=SCORINGS)
+
+    with np.printoptions(precision=2):
+        print(scores)
+
+    print(f"\n{SCORINGS}: {scores.mean():.2f}, with std dev: {scores.std():.2f}\n")
+
+
 print(x_all_oh_df.shape)
 
 from sklearn.feature_selection import VarianceThreshold
@@ -137,131 +151,29 @@ x_test_oh_df.drop(labels=correlated_features, axis=1, inplace=True)
 from sklearn.model_selection import train_test_split, KFold, RandomizedSearchCV, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 
-X = x_oh_df.drop(['ys'], axis=1)
-Y = x_oh_df['ys']
+x_train, x_test, y_train, y_test = train_test_split(
+    x_oh_df.drop(['ys'], axis=1),
+    x_oh_df['ys'],
+    test_size=0.2,
+    random_state=7
+)
+
+
+#drop
 
 
 from sklearn.neighbors import NearestCentroid
-
 from sklearn.metrics import balanced_accuracy_score
 
+# pipe = make_pipeline(RobustScaler(), PCA(n_components=0.90), svm.SVC())
+# pipe.fit(x_train, y_train)
+# Y_pca_pred = pipe.predict(x_test)
 
-def cross_val ():
-    SCORINGS = "balanced_accuracy"
-
-    pipe = make_pipeline(PCA(n_components=113), NearestCentroid())
-
-    scores = model_selection.cross_val_score(pipe, X, Y, cv=10, scoring=SCORINGS)
-
-    with np.printoptions(precision=2):
-        print(scores)
-
-    print(f"\n{SCORINGS}: {scores.mean():.2f}, with std dev: {scores.std():.2f}\n")
-
-
-
-print(x_oh_df.shape)
-
-x_train, x_test, y_train, y_test = train_test_split(
-    X,
-    Y,
-    test_size=0.2,
-    random_state=7
-)
-
-
-accuracy_scores=np.zeros((118,2))
-
-for index, nbc in enumerate(range(1, 119)):
-    pipe = imblearn.pipeline.Pipeline(
-    [
-        ("scale", StandardScaler()),
-        ("pca", PCA(n_components=nbc)),
-        ("resample", imblearn.over_sampling.SMOTE()),
-        ("model", NearestCentroid()),
-    ]
-)
-    pipe.fit(x_train, y_train)
-    pred_test_rbt = pipe.predict(x_test)
-    resultat = balanced_accuracy_score(y_test, pred_test_rbt)
-    accuracy_scores[index, 1]=( f"{resultat :.04f}")
-    accuracy_scores[index, 0]=nbc
-
-print(pd.DataFrame(accuracy_scores,columns=["nb_component","accuracy_score"]).sort_values(ascending = True, by=["accuracy_score"]))
-
-x_train, x_test, y_train, y_test = train_test_split(
-    X,
-    Y,
-    test_size=0.2,
-    random_state=7
-)
-
-pipe = imblearn.pipeline.Pipeline(
-    [
-        ("scale", StandardScaler()),
-        ("pca", PCA(n_components=113)),
-        ("resample", imblearn.over_sampling.SMOTE()),
-        ("model", NearestCentroid()),
-    ]
-)
-
-pipe.fit(x_train, y_train)
-Y_pca_pred = pipe.predict(x_test)
+import prophet
 resultat = balanced_accuracy_score(y_test, Y_pca_pred)
 print(resultat)
 
-# pipe = imblearn.pipeline.Pipeline(
-#     [
-#         ("scale", StandardScaler()),
-#         ("pca", PCA(n_components=118)),
-#         ("resample", imblearn.over_sampling.SMOTE()),
-#         ("model", NearestCentroid()),
-#     ]
-# )
 
-# pipe.fit(x_train, y_train)
-# Y_pca_pred = pipe.predict(x_test)
-# resultat = balanced_accuracy_score(y_test, Y_pca_pred)
-# print(resultat)
-
-# pipe.fit(X, Y)
-
-# predictions = pipe.predict(x_test_oh_df.drop(['ys'], axis=1))
-
-# PRED_PATH.mkdir(parents=True, exist_ok=True)
-
-# t_stamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
-# submission_fp = PRED_PATH / f"submission_{t_stamp}.zip"
-
-# pred_fname = "mimic_synthetic_test.csv"
-# compr_opts = dict(method="zip", archive_name=pred_fname)
-
-# pd.Series(predictions).to_csv(
-#     submission_fp, compression=compr_opts, index=False, header=False
-# )
-
-# print(f"The submission is ready: {submission_fp}")
-
-# CV = 10
-# SCORINGS = "balanced_accuracy"
-
-# pipe = make_pipeline(RobustScaler(), PCA(), NearestCentroid())
-
-# scores = model_selection.cross_val_score(pipe, X, Y, cv=10, scoring=SCORINGS)
-
-# with np.printoptions(precision=2):
-#     print(scores)
-
-# print(f"\n{SCORINGS}: {scores.mean():.2f}, with std dev: {scores.std():.2f}\n")
-
-# pipe = make_pipeline(StandardScaler(), PCA(), NearestCentroid())
-
-# scores = model_selection.cross_val_score(pipe, X, Y, cv=10, scoring=SCORINGS)
-
-# with np.printoptions(precision=2):
-#     print(scores)
-
-# print(f"\n{SCORINGS}: {scores.mean():.2f}, with std dev: {scores.std():.2f}\n")
 
 # kfold = KFold(n_splits=5)
 # model = LogisticRegression(C=7.7, solver='saga')

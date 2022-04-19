@@ -1,7 +1,11 @@
 from datetime import datetime
 from pathlib import Path
 from random import gauss
+from turtle import exitonclick
 from unittest import result
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearnex import patch_sklearn, config_context
 patch_sklearn()
 import imblearn
@@ -35,7 +39,7 @@ DATA = Path("public_data")
 
 PRED_PATH = Path("Submissions")
 
-DROP_VARS = ["ADMITTIME", "DISCHTIME", "SUBJECT_ID", "HADM_ID"]
+DROP_VARS = ["ADMITTIME", "DISCHTIME", "SUBJECT_ID", "HADM_ID","Allergy"]
 
 assert DATA.is_dir()
 
@@ -54,8 +58,7 @@ x_df = pd.read_csv(
     sep=" ",
 )
 
-# Remove variables that are not relevant
-x_df.drop(columns=DROP_VARS, inplace=True)
+
 
 ys = pd.Series(
     pd.read_csv(
@@ -66,6 +69,58 @@ ys = pd.Series(
     ).values.flatten()
 )
 
+
+
+n=0.001
+### merge var
+s = x_df.corrwith(ys[:], axis=0)
+
+s = s[s<n]
+s = s[s>0]
+mergeVar=[]
+for x in s.index:
+    mergeVar.append(x)
+print(len(mergeVar))
+x_df['lessCorr']=x_df[mergeVar[0]]
+for var in mergeVar:
+        x_df['lessCorr']=x_df['lessCorr']+x_df[var]
+
+# Remove variables that are not relevant
+x_df.drop(columns=DROP_VARS, inplace=True)
+try:
+    x_df.drop(columns=mergeVar, inplace=True)
+except Exception as e :
+    pass
+
+
+### merge varNeg
+s = x_df.corrwith(ys[:], axis=0)
+
+s = s[s>-n]
+s = s[s<0]
+mergeVarNeg=[]
+for x in s.index:
+    mergeVarNeg.append(x)
+len(mergeVarNeg)
+x_df['lessCorrNeg']=x_df[mergeVarNeg[0]]
+for var in mergeVarNeg:
+        x_df['lessCorrNeg']=x_df['lessCorrNeg']+x_df[var]
+
+
+try:
+    x_df.drop(columns=mergeVarNeg, inplace=True)
+except Exception as e :
+    pass
+
+
+
+
+
+
+
+
+
+
 # Load test set
 x_test_df = pd.read_csv(
     DATA / "mimic_synthetic_test.data",
@@ -74,8 +129,26 @@ x_test_df = pd.read_csv(
     sep=" ",
 )
 
+
+
+
 # Remove variables that are not relevant
 x_test_df.drop(columns=DROP_VARS, inplace=True)
+try:
+    x_test_df.drop(columns=mergeVar, inplace=True)
+except Exception as e :
+    pass
+
+try:
+    x_test_df.drop(columns=mergeVarNeg, inplace=True)
+except Exception as e :
+    pass
+x_test_df['lessCorr']=x_df['lessCorr']
+x_test_df['lessCorrNeg']=x_df['lessCorrNeg']
+
+
+
+
 
 ###############################################################################
 
@@ -141,7 +214,7 @@ X = x_oh_df.drop(['ys'], axis=1)
 Y = x_oh_df['ys']
 
 
-from sklearn.neighbors import NearestCentroid
+from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
 
 from sklearn.metrics import balanced_accuracy_score
 
@@ -149,7 +222,7 @@ from sklearn.metrics import balanced_accuracy_score
 def cross_val ():
     SCORINGS = "balanced_accuracy"
 
-    pipe = make_pipeline(PCA(n_components=113), NearestCentroid())
+    pipe = make_pipeline(PCA(n_components=0.90), NearestCentroid())
 
     scores = model_selection.cross_val_score(pipe, X, Y, cv=10, scoring=SCORINGS)
 
@@ -172,20 +245,20 @@ x_train, x_test, y_train, y_test = train_test_split(
 
 accuracy_scores=np.zeros((118,2))
 
-for index, nbc in enumerate(range(1, 119)):
-    pipe = imblearn.pipeline.Pipeline(
-    [
-        ("scale", StandardScaler()),
-        ("pca", PCA(n_components=nbc)),
-        ("resample", imblearn.over_sampling.SMOTE()),
-        ("model", NearestCentroid()),
-    ]
-)
-    pipe.fit(x_train, y_train)
-    pred_test_rbt = pipe.predict(x_test)
-    resultat = balanced_accuracy_score(y_test, pred_test_rbt)
-    accuracy_scores[index, 1]=( f"{resultat :.04f}")
-    accuracy_scores[index, 0]=nbc
+# for index, nbc in enumerate(range(1, 119)):
+#     pipe = imblearn.pipeline.Pipeline(
+#     [
+#         ("scale", StandardScaler()),
+#         ("pca", PCA(n_components=nbc)),
+#         ("resample", imblearn.over_sampling.SMOTE()),
+#         ("model", NearestCentroid()),
+#     ]
+#     )
+#     pipe.fit(x_train, y_train)
+#     pred_test_rbt = pipe.predict(x_test)
+#     resultat = balanced_accuracy_score(y_test, pred_test_rbt)
+#     accuracy_scores[index, 1]=( f"{resultat :.04f}")
+#     accuracy_scores[index, 0]=nbc
 
 print(pd.DataFrame(accuracy_scores,columns=["nb_component","accuracy_score"]).sort_values(ascending = True, by=["accuracy_score"]))
 
@@ -196,19 +269,88 @@ x_train, x_test, y_train, y_test = train_test_split(
     random_state=7
 )
 
-pipe = imblearn.pipeline.Pipeline(
-    [
-        ("scale", StandardScaler()),
-        ("pca", PCA(n_components=113)),
-        ("resample", imblearn.over_sampling.SMOTE()),
-        ("model", NearestCentroid()),
-    ]
-)
+## drop rows 
 
-pipe.fit(x_train, y_train)
-Y_pca_pred = pipe.predict(x_test)
-resultat = balanced_accuracy_score(y_test, Y_pca_pred)
-print(resultat)
+# ## y_test
+# y_train_died = y_train[y_train==1].index
+# nbdied= len(y_train_died)*5
+# y_train_lived = y_train[y_train==0].index
+# y_train_live_save = y_train_lived[0:nbdied]
+# y_train=y_train_live_save.append(y_train_died)
+# ## x_train
+# x_train.drop(y_train_lived[nbdied-1:-1],inplace=True)
+# print(x_train.shape)
+# print(y_train.shape)
+
+
+
+names = [
+    # "Nearest Neighbors",
+    # "Linear SVM",
+    "RBF SVM",
+    # "Gaussian Process",
+    # "Decision Tree",
+    # "Random Forest",
+    # "Neural Net",
+    # "AdaBoost",
+    # "Naive Bayes",
+    # "QDA",
+]
+
+classifiers = [
+    # KNeighborsClassifier(3),
+    # svm.SVC(kernel="linear", C=1.0),
+    svm.SVC(gamma=2, C=1),
+    # GaussianProcessClassifier(),
+    # DecisionTreeClassifier(max_depth=5),
+    # ensemble.RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
+    # MLPClassifier(alpha=1, max_iter=1000),
+    # ensemble.AdaBoostClassifier(),
+    # GaussianNB(),
+    # discriminant_analysis.QuadraticDiscriminantAnalysis(),
+]
+
+
+    
+
+
+# for name,model in zip(names,classifiers):
+#     print(name)
+#     pipe = imblearn.pipeline.Pipeline(
+#         [
+#             ("scale", StandardScaler()),
+#             ("pca", PCA(n_components=0.90)),
+#             ("resample", imblearn.over_sampling.SMOTE()),
+#             ("model", model),
+#         ]
+#     )
+
+#     print(x_train.shape)
+#     try:
+#         pipe.fit(x_train, y_train)
+#         Y_pca_pred = pipe.predict(x_test)
+#     except Exception as e :
+#         pass
+#     resultat = balanced_accuracy_score(y_test, Y_pca_pred)
+#     print(resultat)
+
+for i in range(10):
+    print(i)
+    pipe = imblearn.pipeline.Pipeline(
+        [
+            ("scale", StandardScaler()),
+            ("pca", PCA(n_components=0.90)),
+            ("resample", imblearn.over_sampling.SMOTE()),
+            ("model", svm.SVC(gamma=i+1, C=i+1)),
+        ]
+    )
+
+    print(x_train.shape)
+
+    pipe.fit(x_train, y_train)
+    Y_pca_pred = pipe.predict(x_test)
+    resultat = balanced_accuracy_score(y_test, Y_pca_pred)
+    print(resultat)
 
 # pipe = imblearn.pipeline.Pipeline(
 #     [
@@ -272,6 +414,7 @@ print(resultat)
 # parameters = {'kernel':('linear', 'rbf'), 'C':[1, 10]}
 # svc = svm.SVC()
 # clf = GridSearchCV(svc, parameters)
+
 
 # param_grid = {'C': [0.1,1, 10, 100], 'gamma': [1,0.1,0.01,0.001],'kernel': ['rbf', 'poly', 'sigmoid']}
 # grid = GridSearchCV(svm.SVC(),param_grid,refit=True,verbose=2)
